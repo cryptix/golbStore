@@ -9,11 +9,16 @@ import (
 
 // LatestEntries loads all Blogentries in the results slice
 // (sorted descending by date)
-func (b MgoBlog) LatestEntries() (entries []*Entry, err error) {
+func (b MgoBlog) LatestEntries(withText bool) (entries []*Entry, err error) {
 	coll, s := b.getCollection()
 	defer s.Close()
 
-	err = coll.Find(nil).Sort("-_written").All(&entries)
+	proj := bson.M{"text": 0}
+	if withText {
+		proj["text"] = 1
+	}
+
+	err = coll.Find(nil).Select(proj).Sort("-_written").All(&entries)
 	if err != nil {
 		return nil, err
 	}
