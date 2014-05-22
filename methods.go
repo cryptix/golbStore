@@ -1,8 +1,6 @@
 package golbStore
 
 import (
-	"time"
-
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
@@ -63,16 +61,6 @@ func (b MgoBlog) Delete(id string) error {
 }
 
 func (b MgoBlog) Save(e *Entry) error {
-	// if we have a valid ObjId we assume it's an update
-	if bson.IsObjectIdHex(e.Id) {
-		e.ObjId = bson.ObjectIdHex(e.Id)
-	} else {
-		// no valid ObjId, so we assume it's a new post
-		// and generate a new one
-		e.ObjId = bson.NewObjectId()
-		// set creation datetime
-		e.Written = time.Now()
-	}
 	coll, s := b.getCollection()
 	defer s.Close()
 
@@ -80,14 +68,10 @@ func (b MgoBlog) Save(e *Entry) error {
 	// the "ommitempty" tag and we don't want to update timestamp and username.
 	// this requires MongoDB 2.4!
 	_, err := coll.UpsertId(e.ObjId, bson.M{
-		"$setOnInsert": bson.M{
-			"_id":     e.ObjId,
-			"author":  e.Author,
-			"written": e.Written,
-		},
 		"$set": bson.M{
-			"text":  e.Text,
-			"title": e.Title,
+			"text":   e.Text,
+			"title":  e.Title,
+			"teaser": e.Teaser,
 		},
 	})
 	return err
