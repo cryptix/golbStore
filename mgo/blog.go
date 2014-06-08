@@ -1,22 +1,9 @@
-package golbStore
+package golbStoreMgo
 
 import (
-	"time"
-
+	"github.com/cryptix/golbStore"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 )
-
-// struct for dbquery results
-// mgo requires the string literal tags
-type Entry struct {
-	ObjId   bson.ObjectId `bson:"_id,omitempty"`
-	Author  string        `bson:"author,omitempty"`
-	Written time.Time     `bson:"written,omitempty"`
-	Title   string        `bson:"title"`
-	Text    string        `bson:"text"`
-	Teaser  string        `bson:"teaser"`
-}
 
 // defaults
 const (
@@ -24,6 +11,7 @@ const (
 	blogDbName   = "blog"
 )
 
+// MgoBlog is the the Mgo version of a golbStore
 type MgoBlog struct {
 	dbName, collName string
 	s                *mgo.Session
@@ -35,12 +23,14 @@ func (m MgoBlog) getCollection() (*mgo.Collection, *mgo.Session) {
 	return s.DB(m.dbName).C(m.collName), s
 }
 
+// Options pass the Db- and CollectionName to the Mgo driver
 type Options struct {
 	DbName         string
 	CollectionName string
 }
 
-func NewMgoBlog(session *mgo.Session, o *Options) *MgoBlog {
+// NewStore creates a new mgo based golbStore
+func NewStore(session *mgo.Session, o *Options) golbStore.GolbStorer {
 	b := MgoBlog{s: session}
 
 	if o == nil {

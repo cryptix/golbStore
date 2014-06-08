@@ -1,22 +1,33 @@
-package golbStore
+package golbStoreMgo
 
 import (
+	"github.com/cryptix/golbStore"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
 
-// LatestEntries loads all Blogentries in the results slice
+// Latest loads n Blogentries in the results slice
 // (sorted descending by date)
-func (b MgoBlog) LatestEntries(withText bool) (entries []*Entry, err error) {
+func (b MgoBlog) Latest(n int, withText bool) (entries []*golbStore.Entry, err error) {
 	coll, s := b.getCollection()
 	defer s.Close()
 
+	// supress text by default to make results shorter
 	proj := bson.M{"text": 0}
 	if withText {
 		proj["text"] = 1
 	}
 
-	err = coll.Find(nil).Select(proj).Sort("-_written").All(&entries)
+	qry := coll.Find(nil).Select(proj).Sort("-_written")
+
+	// add an Limit to the query if specified
+	if n > 0 {
+		qry = qry.Limit(n)
+	}
+
+	// run the query
+	err = qry.All(&entries)
 	if err != nil {
 		return nil, err
 	}
@@ -24,9 +35,10 @@ func (b MgoBlog) LatestEntries(withText bool) (entries []*Entry, err error) {
 	return
 }
 
-func (b MgoBlog) FindById(id string) (e *Entry, err error) {
+// Get loads a single Entry
+func (b MgoBlog) Get(id string) (e *golbStore.Entry, err error) {
 	if !bson.IsObjectIdHex(id) {
-		return nil, ErrBadObjectId
+		return nil, ErrBadObjectID
 	}
 
 	coll, s := b.getCollection()
@@ -39,35 +51,43 @@ func (b MgoBlog) FindById(id string) (e *Entry, err error) {
 		return
 
 	case err == mgo.ErrNotFound:
-		return nil, ErrEntryNotFound
+		return nil, golbStore.ErrEntryNotFound
 
 	default:
 		return nil, err
 	}
 }
 
+// Delete drops the entry with id from the store
 func (b MgoBlog) Delete(id string) error {
 	// validate the post id
 	if !bson.IsObjectIdHex(id) {
-		return ErrBadObjectId
+		return ErrBadObjectID
 	}
-	entryId := bson.ObjectIdHex(id)
+	entryID := bson.ObjectIdHex(id)
 
 	coll, s := b.getCollection()
 	defer s.Close()
 
 	// Delete entry
-	return coll.Remove(bson.M{"_id": entryId})
+	return coll.Remove(bson.M{"_id": entryID})
 }
 
-func (b MgoBlog) Save(e *Entry) error {
+// Save updates an entry
+func (b MgoBlog) Save(e *golbStore.Entry) error {
+	if !bson.IsObjectIdHex(e.ID) {
+		return ErrBadObjectID
+	}
+	entryID := bson.ObjectIdHex(e.ID)
+
 	coll, s := b.getCollection()
 	defer s.Close()
 
 	// building the update bson manually is necessery because mgo/bson irgnores
 	// the "ommitempty" tag and we don't want to update timestamp and username.
 	// this requires MongoDB 2.4!
-	_, err := coll.UpsertId(e.ObjId, bson.M{
+
+	_, err := coll.UpsertId(entryID, bson.M{
 		"$set": bson.M{
 			"text":   e.Text,
 			"title":  e.Title,
